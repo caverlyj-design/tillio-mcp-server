@@ -65,6 +65,35 @@ app.get("/memories", async (req, res) => {
   });
 });
 
+app.get("/searchmemories", async (req, res) => {
+  const query = req.query.q;
+
+  if (!query) {
+    return res.status(400).json({
+      error: "Missing search query. Use /searchmemories?q=yoursearchterm"
+    });
+  }
+
+  const { data, error } = await supabase
+    .from("tillio_memories")
+    .select("*")
+    .ilike("memory", `%${query}%`)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to search memories",
+      details: error.message
+    });
+  }
+
+  res.json({
+    query,
+    count: data.length,
+    results: data
+  });
+});
+
 app.post("/memory", async (req, res) => {
   const { memory, category, session_name, importance } = req.body;
 
