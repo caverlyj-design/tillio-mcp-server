@@ -7,8 +7,9 @@
   "scripts": {
     "start": "node server.js"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "latest",
-    "express": "latest"
-  }
+ "dependencies": {
+  "@modelcontextprotocol/sdk": "latest",
+  "@supabase/supabase-js": "latest",
+  "express": "latest"
+}
 }
