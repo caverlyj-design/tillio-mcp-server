@@ -46,9 +46,7 @@ app.get("/tillio", (req, res) => {
   }
 });
 
-/* =========================
-   MEMORY ENDPOINTS
-========================= */
+/* MEMORY ENDPOINTS */
 
 app.get("/memories", async (req, res) => {
   const { data, error } = await supabase
@@ -99,42 +97,49 @@ app.get("/searchmemories", async (req, res) => {
 });
 
 app.post("/memory", async (req, res) => {
-  const { memory, category, session_name, importance } = req.body;
+  try {
+    const body = req.body || {};
+    const { memory, category, session_name, importance } = body;
 
-  if (!memory) {
-    return res.status(400).json({
-      error: "Missing memory field"
+    if (!memory) {
+      return res.status(400).json({
+        error: "Missing memory field",
+        received_body: body
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("tillio_memories")
+      .insert([
+        {
+          memory,
+          category: category || "general",
+          session_name: session_name || null,
+          importance: importance || 1
+        }
+      ])
+      .select();
+
+    if (error) {
+      return res.status(500).json({
+        error: "Unable to save memory",
+        details: error.message
+      });
+    }
+
+    res.json({
+      status: "memory_saved",
+      memory: data[0]
     });
-  }
-
-  const { data, error } = await supabase
-    .from("tillio_memories")
-    .insert([
-      {
-        memory,
-        category: category || "general",
-        session_name: session_name || null,
-        importance: importance || 1
-      }
-    ])
-    .select();
-
-  if (error) {
-    return res.status(500).json({
-      error: "Unable to save memory",
+  } catch (error) {
+    res.status(500).json({
+      error: "Unexpected server error while saving memory",
       details: error.message
     });
   }
-
-  res.json({
-    status: "memory_saved",
-    memory: data[0]
-  });
 });
 
-/* =========================
-   SESSION LOG ENDPOINTS
-========================= */
+/* SESSION LOG ENDPOINTS */
 
 app.get("/sessionlogs", async (req, res) => {
   const { data, error } = await supabase
@@ -156,18 +161,31 @@ app.get("/sessionlogs", async (req, res) => {
 });
 
 app.get("/sessionlog/:number", async (req, res) => {
-  const sessionNumber = req.params.number;
+  const sessionNumber = Number(req.params.number);
+
+  if (!sessionNumber) {
+    return res.status(400).json({
+      error: "Invalid session number"
+    });
+  }
 
   const { data, error } = await supabase
     .from("session_logs")
     .select("*")
     .eq("session_number", sessionNumber)
-    .single();
+    .maybeSingle();
 
   if (error) {
+    return res.status(500).json({
+      error: "Unable to load session log",
+      details: error.message
+    });
+  }
+
+  if (!data) {
     return res.status(404).json({
       error: "Session log not found",
-      details: error.message
+      session_number: sessionNumber
     });
   }
 
@@ -175,42 +193,52 @@ app.get("/sessionlog/:number", async (req, res) => {
 });
 
 app.post("/sessionlog", async (req, res) => {
-  const {
-    session_number,
-    title,
-    summary,
-    important_events
-  } = req.body;
+  try {
+    const body = req.body || {};
 
-  if (!session_number || !title) {
-    return res.status(400).json({
-      error: "session_number and title are required"
+    const {
+      session_number,
+      title,
+      summary,
+      important_events
+    } = body;
+
+    if (!session_number || !title) {
+      return res.status(400).json({
+        error: "session_number and title are required",
+        received_body: body
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("session_logs")
+      .insert([
+        {
+          session_number: Number(session_number),
+          title,
+          summary: summary || "",
+          important_events: Array.isArray(important_events) ? important_events : []
+        }
+      ])
+      .select();
+
+    if (error) {
+      return res.status(500).json({
+        error: "Unable to save session log",
+        details: error.message
+      });
+    }
+
+    res.json({
+      status: "session_log_saved",
+      session_log: data[0]
     });
-  }
-
-  const { data, error } = await supabase
-    .from("session_logs")
-    .insert([
-      {
-        session_number,
-        title,
-        summary: summary || "",
-        important_events: important_events || []
-      }
-    ])
-    .select();
-
-  if (error) {
-    return res.status(500).json({
-      error: "Unable to save session log",
+  } catch (error) {
+    res.status(500).json({
+      error: "Unexpected server error while saving session log",
       details: error.message
     });
   }
-
-  res.json({
-    status: "session_log_saved",
-    session_log: data[0]
-  });
 });
 
 app.listen(PORT, () => {
