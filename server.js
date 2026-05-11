@@ -46,6 +46,10 @@ app.get("/tillio", (req, res) => {
   }
 });
 
+/* =========================
+   MEMORY ENDPOINTS
+========================= */
+
 app.get("/memories", async (req, res) => {
   const { data, error } = await supabase
     .from("tillio_memories")
@@ -70,7 +74,7 @@ app.get("/searchmemories", async (req, res) => {
 
   if (!query) {
     return res.status(400).json({
-      error: "Missing search query. Use /searchmemories?q=yoursearchterm"
+      error: "Missing search query"
     });
   }
 
@@ -125,6 +129,87 @@ app.post("/memory", async (req, res) => {
   res.json({
     status: "memory_saved",
     memory: data[0]
+  });
+});
+
+/* =========================
+   SESSION LOG ENDPOINTS
+========================= */
+
+app.get("/sessionlogs", async (req, res) => {
+  const { data, error } = await supabase
+    .from("session_logs")
+    .select("*")
+    .order("session_number", { ascending: false });
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to load session logs",
+      details: error.message
+    });
+  }
+
+  res.json({
+    count: data.length,
+    session_logs: data
+  });
+});
+
+app.get("/sessionlog/:number", async (req, res) => {
+  const sessionNumber = req.params.number;
+
+  const { data, error } = await supabase
+    .from("session_logs")
+    .select("*")
+    .eq("session_number", sessionNumber)
+    .single();
+
+  if (error) {
+    return res.status(404).json({
+      error: "Session log not found",
+      details: error.message
+    });
+  }
+
+  res.json(data);
+});
+
+app.post("/sessionlog", async (req, res) => {
+  const {
+    session_number,
+    title,
+    summary,
+    important_events
+  } = req.body;
+
+  if (!session_number || !title) {
+    return res.status(400).json({
+      error: "session_number and title are required"
+    });
+  }
+
+  const { data, error } = await supabase
+    .from("session_logs")
+    .insert([
+      {
+        session_number,
+        title,
+        summary: summary || "",
+        important_events: important_events || []
+      }
+    ])
+    .select();
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to save session log",
+      details: error.message
+    });
+  }
+
+  res.json({
+    status: "session_log_saved",
+    session_log: data[0]
   });
 });
 
