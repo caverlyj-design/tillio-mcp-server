@@ -1,10 +1,16 @@
 import express from "express";
 import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 function loadJsonFile(filename) {
   const rawData = fs.readFileSync(filename, "utf8");
@@ -16,6 +22,13 @@ app.get("/", (req, res) => {
     status: "online",
     server: "Tillio MCP Server",
     message: "The kender is watching."
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.json({
+    status: "healthy",
+    supabase_connected: Boolean(supabaseUrl && supabaseKey)
   });
 });
 
@@ -31,9 +44,56 @@ app.get("/tillio", (req, res) => {
   }
 });
 
-app.get("/health", (req, res) => {
+app.get("/memories", async (req, res) => {
+  const { data, error } = await supabase
+    .from("tillio_memories")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to load memories",
+      details: error.message
+    });
+  }
+
   res.json({
-    status: "healthy"
+    count: data.length,
+    memories: data
+  });
+});
+
+app.post("/memory", async (req, res) => {
+  const { memory, category, session_name, importance } = req.body;
+
+  if (!memory) {
+    return res.status(400).json({
+      error: "Missing memory field"
+    });
+  }
+
+  const { data, error } = await supabase
+    .from("tillio_memories")
+    .insert([
+      {
+        memory,
+        category: category || "general",
+        session_name: session_name || null,
+        importance: importance || 1
+      }
+    ])
+    .select();
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to save memory",
+      details: error.message
+    });
+  }
+
+  res.json({
+    status: "memory_saved",
+    memory: data[0]
   });
 });
 
