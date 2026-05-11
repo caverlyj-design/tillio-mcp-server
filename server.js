@@ -364,6 +364,165 @@ app.post("/lore", async (req, res) => {
   }
 });
 
+/* RELATIONSHIP ENDPOINTS */
+
+app.get("/relationships", async (req, res) => {
+  const { data, error } = await supabase
+    .from("relationships")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to load relationships",
+      details: error.message
+    });
+  }
+
+  res.json({
+    count: data.length,
+    relationships: data
+  });
+});
+
+app.get("/relationship/:name", async (req, res) => {
+  const name = req.params.name;
+
+  const { data, error } = await supabase
+    .from("relationships")
+    .select("*")
+    .ilike("name", name)
+    .maybeSingle();
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to load relationship",
+      details: error.message
+    });
+  }
+
+  if (!data) {
+    return res.status(404).json({
+      error: "Relationship not found",
+      name
+    });
+  }
+
+  res.json(data);
+});
+
+app.post("/relationship", async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    const {
+      name,
+      role,
+      relationship_type,
+      trust,
+      affection,
+      fear,
+      curiosity,
+      notes,
+      secrets_known,
+      last_interaction
+    } = body;
+
+    if (!name) {
+      return res.status(400).json({
+        error: "name is required",
+        received_body: body
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("relationships")
+      .insert([
+        {
+          name,
+          role: role || "",
+          relationship_type: relationship_type || "unknown",
+          trust: Number(trust || 0),
+          affection: Number(affection || 0),
+          fear: Number(fear || 0),
+          curiosity: Number(curiosity || 0),
+          notes: Array.isArray(notes) ? notes : [],
+          secrets_known: Array.isArray(secrets_known) ? secrets_known : [],
+          last_interaction: last_interaction || ""
+        }
+      ])
+      .select();
+
+    if (error) {
+      return res.status(500).json({
+        error: "Unable to save relationship",
+        details: error.message
+      });
+    }
+
+    res.json({
+      status: "relationship_saved",
+      relationship: data[0]
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Unexpected server error while saving relationship",
+      details: error.message
+    });
+  }
+});
+
+app.patch("/relationship/:name", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const body = req.body || {};
+
+    const updateData = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (body.role !== undefined) updateData.role = body.role;
+    if (body.relationship_type !== undefined) updateData.relationship_type = body.relationship_type;
+    if (body.trust !== undefined) updateData.trust = Number(body.trust);
+    if (body.affection !== undefined) updateData.affection = Number(body.affection);
+    if (body.fear !== undefined) updateData.fear = Number(body.fear);
+    if (body.curiosity !== undefined) updateData.curiosity = Number(body.curiosity);
+    if (body.notes !== undefined) updateData.notes = Array.isArray(body.notes) ? body.notes : [];
+    if (body.secrets_known !== undefined) updateData.secrets_known = Array.isArray(body.secrets_known) ? body.secrets_known : [];
+    if (body.last_interaction !== undefined) updateData.last_interaction = body.last_interaction;
+
+    const { data, error } = await supabase
+      .from("relationships")
+      .update(updateData)
+      .ilike("name", name)
+      .select();
+
+    if (error) {
+      return res.status(500).json({
+        error: "Unable to update relationship",
+        details: error.message
+      });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        error: "Relationship not found",
+        name
+      });
+    }
+
+    res.json({
+      status: "relationship_updated",
+      relationship: data[0]
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Unexpected server error while updating relationship",
+      details: error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
