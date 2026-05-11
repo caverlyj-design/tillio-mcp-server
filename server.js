@@ -241,6 +241,129 @@ app.post("/sessionlog", async (req, res) => {
   }
 });
 
+/* LORE ENDPOINTS */
+
+app.get("/lore", async (req, res) => {
+  const { data, error } = await supabase
+    .from("lore_entries")
+    .select("*")
+    .order("topic", { ascending: true });
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to load lore entries",
+      details: error.message
+    });
+  }
+
+  res.json({
+    count: data.length,
+    lore_entries: data
+  });
+});
+
+app.get("/lore/:topic", async (req, res) => {
+  const topic = req.params.topic;
+
+  const { data, error } = await supabase
+    .from("lore_entries")
+    .select("*")
+    .ilike("topic", topic)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to load lore topic",
+      details: error.message
+    });
+  }
+
+  if (!data || data.length === 0) {
+    return res.status(404).json({
+      error: "Lore topic not found",
+      topic
+    });
+  }
+
+  res.json({
+    topic,
+    count: data.length,
+    entries: data
+  });
+});
+
+app.get("/searchlore", async (req, res) => {
+  const query = req.query.q;
+
+  if (!query) {
+    return res.status(400).json({
+      error: "Missing search query"
+    });
+  }
+
+  const { data, error } = await supabase
+    .from("lore_entries")
+    .select("*")
+    .or(`topic.ilike.%${query}%,content.ilike.%${query}%,category.ilike.%${query}%`)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.status(500).json({
+      error: "Unable to search lore",
+      details: error.message
+    });
+  }
+
+  res.json({
+    query,
+    count: data.length,
+    results: data
+  });
+});
+
+app.post("/lore", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const { topic, category, content, tags } = body;
+
+    if (!topic || !content) {
+      return res.status(400).json({
+        error: "topic and content are required",
+        received_body: body
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("lore_entries")
+      .insert([
+        {
+          topic,
+          category: category || "general",
+          content,
+          tags: Array.isArray(tags) ? tags : []
+        }
+      ])
+      .select();
+
+    if (error) {
+      return res.status(500).json({
+        error: "Unable to save lore entry",
+        details: error.message
+      });
+    }
+
+    res.json({
+      status: "lore_saved",
+      lore_entry: data[0]
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Unexpected server error while saving lore",
+      details: error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
