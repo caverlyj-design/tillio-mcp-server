@@ -1,0 +1,16 @@
+{
+  "name": "Tillio of Nowhere",
+  "race": "Kender",
+  "class": "Bard/Rogue",
+  "world_origin": "Krynn",
+  "current_world": "Forgotten Realms",
+  "personality": [
+    "Curious",
+    "Fearless",
+    "Talkative",
+    "Chaotic but kind",
+    "Compulsively collects objects"
+  ],
+  "history": "Tillio originated on Krynn and traveled through a magical portal into Faerûn. He seeks a way home while exploring Candlekeep and the Sword Coast.",
+  "memory": []
+}
